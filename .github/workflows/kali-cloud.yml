@@ -1,0 +1,70 @@
+name: 🛡️ CYNET Cloud Kali Linux
+
+on:
+  workflow_dispatch:
+
+jobs:
+  launch-kali:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: 📦 Setup Kali Linux Engine & Web Terminal (TTYD)
+        run: |
+          echo "=========================================================="
+          echo "  🛡️ INSTALLING KALI LINUX & HACKING SUITE..."
+          echo "=========================================================="
+          sudo apt-get update -y -q
+          
+          # نصب کلودفلرد
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /usr/local/bin/cloudflared
+          sudo chmod +x /usr/local/bin/cloudflared
+
+          # نصب وب‌ترمینال قدرتمند ttyd
+          sudo wget -q https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 -O /usr/local/bin/ttyd
+          sudo chmod +x /usr/local/bin/ttyd
+
+          # اجرای کانتینر رسمی کالی لینوکس با دسترسی روت کامل
+          docker run -d \
+            --name cynet-kali \
+            --privileged \
+            --network host \
+            -v /root:/root \
+            kalilinux/kali-rolling \
+            tail -f /dev/null
+
+          # نصب ابزارهای اصلی کالی در پس‌زمینه
+          docker exec cynet-kali apt-get update -y
+          docker exec cynet-kali apt-get install -y -q nmap metasploit-framework sqlmap hydra curl wget python3 git sudo zsh tmux
+
+      - name: 🌐 Launch Interactive Web Terminal & Public Link
+        run: |
+          echo "=========================================================="
+          echo "  🎉 LAUNCHING INTERACTIVE KALI WEB TERMINAL..."
+          echo "=========================================================="
+          
+          # اجرای وب ترمینال با فلگ -W برای فعال‌سازی کامل تایپ و کیبورد
+          ttyd -W -p 7681 -t fontSize=16 -t theme='{"background": "#0f172a", "foreground": "#38bdf8", "cursor": "#38bdf8"}' docker exec -it cynet-kali /bin/bash > /dev/null 2>&1 &
+          sleep 3
+
+          # ایجاد تانل کلودفلر
+          cloudflared tunnel --url http://localhost:7681 > tunnel.log 2>&1 &
+          
+          sleep 5
+          for i in {1..20}; do
+            URL=$(grep -o 'https://[a-zA-Z0-9-]*\.trycloudflare\.com' tunnel.log | head -n 1)
+            if [ -n "$URL" ]; then
+              echo ""
+              echo "=========================================================="
+              echo "  🔥 YOUR INTERACTIVE KALI LINUX IS LIVE & READY!"
+              echo "  👉 CLICK TO OPEN IN BROWSER: $URL"
+              echo "  --------------------------------------------------------"
+              echo "  ⚡ Full Root Access | 1000 Mbps Internet | Keyboard Active"
+              echo "=========================================================="
+              echo ""
+              break
+            fi
+            sleep 2
+          done
+
+          tail -f tunnel.log
